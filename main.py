@@ -7,6 +7,7 @@ import logging
 
 parser = argparse.ArgumentParser(prog="ecs-tasker", description="Starts/Stops ECS services")
 
+parser.add_argument("--region", help="AWS region (defaults to AWS config chain)")
 parser.add_argument("--cluster", help="The name of the ECS cluster", required=True)
 group1 = parser.add_mutually_exclusive_group(required=True)
 group1.add_argument("--service", help="The name of the ECS service")
@@ -56,7 +57,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     logging.basicConfig(level=args.loglevel)
 
-    client = boto3.client("ecs")
+    client = boto3.client("ecs", **({"region_name": args.region} if args.region else {}))
     cluster = args.cluster
     service = args.service
     stop = args.stop
