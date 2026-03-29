@@ -1,8 +1,9 @@
 import argparse
-import boto3
-import logging
+import sys
 
-client = boto3.client("ecs", region_name="eu-north-1")
+import boto3
+from botocore.exceptions import ClientError
+import logging
 
 parser = argparse.ArgumentParser(prog="ecs-tasker", description="Starts/Stops ECS services")
 
@@ -23,7 +24,7 @@ parser.add_argument(
 )
 
 
-def stop_service(cluster, service):
+def stop_service(client, cluster, service):
     response = client.update_service(
         cluster=cluster,
         service=service,
@@ -32,18 +33,20 @@ def stop_service(cluster, service):
     logging.debug(response)
 
 
-def start_service(cluster, service):
+def start_service(client, cluster, service, desired_count=1):
     response = client.update_service(
         cluster=cluster,
         service=service,
-        desiredCount=1,
+        desiredCount=desired_count,
     )
     logging.debug(response)
 
 
-def find_all_services(cluster):
-    response = client.list_services(cluster=cluster, maxResults=100)
-    services = response["serviceArns"]
+def find_all_services(client, cluster):
+    paginator = client.get_paginator("list_services")
+    services = []
+    for page in paginator.paginate(cluster=cluster):
+        services.extend(page["serviceArns"])
     for service in services:
         logging.debug(service)
     return services
@@ -52,27 +55,31 @@ def find_all_services(cluster):
 if __name__ == "__main__":
     args = parser.parse_args()
     logging.basicConfig(level=args.loglevel)
-    logging.basicConfig(level=logging.DEBUG)
 
+    client = boto3.client("ecs")
     cluster = args.cluster
     service = args.service
     stop = args.stop
     start = args.start
 
-    if args.all:
-        logging.info("Finding all services")
-        services = find_all_services(cluster)
-        logging.debug(services)
-        for service in services:
-            if stop:
-                logging.info(f"Stopping service: {service}")
-                stop_service(cluster, service)
-            elif start:
-                logging.info(f"Starting service: {service}")
-                start_service(cluster, service)
-    elif start:
-        logging.info(f"Starting service: {service}")
-        start_service(cluster, service)
-    else:
-        logging.info(f"Stopping service: {service}")
-        stop_service(cluster, service)
+    try:
+        if args.all:
+            logging.info("Finding all services")
+            services = find_all_services(client, cluster)
+            logging.debug(services)
+            for svc in services:
+                if stop:
+                    logging.info(f"Stopping service: {svc}")
+                    stop_service(client, cluster, svc)
+                elif start:
+                    logging.info(f"Starting service: {svc}")
+                    start_service(client, cluster, svc)
+        elif start:
+            logging.info(f"Starting service: {service}")
+            start_service(client, cluster, service)
+        else:
+            logging.info(f"Stopping service: {service}")
+            stop_service(client, cluster, service)
+    except ClientError as e:
+        logging.error(f"AWS error: {e.response['Error']['Message']}")
+        sys.exit(1)
