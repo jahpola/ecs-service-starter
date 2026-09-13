@@ -1,4 +1,5 @@
 """Unit tests for ECS service management functions."""
+
 import pytest
 
 from main import find_all_services, start_service, stop_service
@@ -10,9 +11,7 @@ class TestStopService:
     def test_sets_desired_count_to_zero(self, ecs_client):
         """Verify that stop_service sets desiredCount to 0."""
         stop_service(ecs_client, "my-cluster", "my-service")
-        ecs_client.update_service.assert_called_once_with(
-            cluster="my-cluster", service="my-service", desiredCount=0
-        )
+        ecs_client.update_service.assert_called_once_with(cluster="my-cluster", service="my-service", desiredCount=0)
 
 
 class TestStartService:
