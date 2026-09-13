@@ -56,32 +56,37 @@ def find_all_services(client, cluster):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    logger.basicConfig(level=args.loglevel)
+    logging.basicConfig(level=args.loglevel)
 
     client = boto3.client("ecs", **({"region_name": args.region} if args.region else {}))
     cluster = args.cluster
-    service = args.service
-    stop = args.stop
-    start = args.start
 
     try:
         if args.all:
             logger.info("Finding all services")
             services = find_all_services(client, cluster)
+            if not services:
+                logger.warning("No services found in cluster")
             logger.debug(services)
             for svc in services:
-                if stop:
+                if args.stop:
                     logger.info(f"Stopping service: {svc}")
                     stop_service(client, cluster, svc)
-                elif start:
+                elif args.start:
                     logger.info(f"Starting service: {svc}")
                     start_service(client, cluster, svc)
-        elif start:
-            logger.info(f"Starting service: {service}")
-            start_service(client, cluster, service)
+        elif args.start:
+            if not args.service:
+                logger.error("Service name is required when not using --all")
+                sys.exit(1)
+            logger.info(f"Starting service: {args.service}")
+            start_service(client, cluster, args.service)
         else:
-            logger.info(f"Stopping service: {service}")
-            stop_service(client, cluster, service)
+            if not args.service:
+                logger.error("Service name is required when not using --all")
+                sys.exit(1)
+            logger.info(f"Stopping service: {args.service}")
+            stop_service(client, cluster, args.service)
     except ClientError as e:
-        logger.error(f"AWS error: {e.response['Error']['Message']}")
+        logger.exception(f"AWS error: {e.response['Error']['Message']}")
         sys.exit(1)
