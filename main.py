@@ -3,7 +3,7 @@ import logging
 import sys
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 
 logger = logging.getLogger(__name__)
 parser = argparse.ArgumentParser(prog="ecs-tasker", description="Starts/Stops ECS services")
@@ -58,10 +58,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     logging.basicConfig(level=args.loglevel)
 
-    client = boto3.client("ecs", **({"region_name": args.region} if args.region else {}))
     cluster = args.cluster
 
     try:
+        client = boto3.client("ecs", **({"region_name": args.region} if args.region else {}))
         if args.all:
             logger.info("Finding all services")
             services = find_all_services(client, cluster)
@@ -89,4 +89,7 @@ if __name__ == "__main__":
             stop_service(client, cluster, args.service)
     except ClientError as e:
         logger.exception(f"AWS error: {e.response['Error']['Message']}")
+        sys.exit(1)
+    except BotoCoreError:
+        logger.exception("AWS configuration error")
         sys.exit(1)
