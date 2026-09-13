@@ -21,10 +21,10 @@ jobs:
         run: uv sync --all-groups
 
       - name: Ruff check
-        run: uv run ruff check main.py test_main.py
+        run: uv run ruff check main.py tests/test_main.py
 
       - name: Ruff format check
-        run: uv run ruff format --check main.py test_main.py
+        run: uv run ruff format --check main.py tests/test_main.py
 
       - name: Run tests
         run: uv run python -m pytest tests/test_main.py -v --cov=main --cov-report=xml
