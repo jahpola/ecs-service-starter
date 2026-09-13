@@ -1,6 +1,11 @@
 """Unit tests for ECS service management functions."""
 
+import logging
+import runpy
+import sys
+
 import pytest
+from botocore.exceptions import ClientError
 
 from main import find_all_services, start_service, stop_service
 
@@ -71,3 +76,29 @@ class TestFindAllServices:
         result = find_all_services(ecs_client, "my-cluster")
 
         assert result == []
+
+
+class TestCli:
+    """Tests for CLI execution."""
+
+    def test_client_error_logs_and_exits(self, monkeypatch, caplog):
+        """Verify CLI logs ECS client errors and exits with a non-zero status."""
+
+        def raise_client_error(*args, **kwargs):
+            raise ClientError(
+                {"Error": {"Code": "AccessDeniedException", "Message": "Access denied"}},
+                "UpdateService",
+            )
+
+        monkeypatch.setattr("boto3.client", raise_client_error)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["main.py", "--cluster", "my-cluster", "--service", "my-service", "--start"],
+        )
+
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit) as exc_info:
+            runpy.run_module("main", run_name="__main__")
+
+        assert exc_info.value.code == 1
+        assert "AWS error: Access denied" in caplog.text
